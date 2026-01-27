@@ -153,7 +153,7 @@ final class ContentAggregator
     }
 
     /**
-     * Process content by executing shortcodes and converting to plain text.
+     * Process content by executing shortcodes, blocks, and converting to plain text.
      *
      * @param string   $content The content to process.
      * @param \WP_Post $post    The post context.
@@ -165,14 +165,24 @@ final class ContentAggregator
             return '';
         }
 
-        // Set up post context for shortcodes that depend on global $post
+        // Set up post context for shortcodes/blocks that depend on global $post
         $originalPost = $GLOBALS['post'] ?? null;
         $GLOBALS['post'] = $post;
         setup_postdata($post);
 
-        // Apply the_content filter which includes do_shortcode at priority 11
-        // This ensures all shortcodes are processed including those registered late
-        $processed = apply_filters('the_content', $content);
+        // Process Gutenberg blocks first (if function exists - WP 5.0+)
+        if (function_exists('do_blocks')) {
+            $content = do_blocks($content);
+        }
+
+        // Process shortcodes
+        $processed = do_shortcode($content);
+
+        // Apply other content filters (wpautop, etc.) but avoid recursion
+        // by not using the_content filter again
+        $processed = wptexturize($processed);
+        $processed = convert_smilies($processed);
+        $processed = wp_filter_content_tags($processed);
 
         // Restore original post context
         if ($originalPost) {
@@ -185,6 +195,11 @@ final class ContentAggregator
         // Convert HTML to plain text
         $processed = wp_strip_all_tags($processed);
         $processed = html_entity_decode($processed, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Remove any unprocessed shortcodes that remain
+        $processed = preg_replace('/\[[^\]]+\]/', '', $processed) ?? $processed;
+
+        // Normalize whitespace
         $processed = preg_replace('/\s+/', ' ', $processed) ?? $processed;
 
         return trim($processed);

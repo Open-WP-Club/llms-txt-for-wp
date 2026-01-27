@@ -65,6 +65,52 @@ Navigate to **Settings > LLMs.txt** to configure:
 - **Custom Description**: Override the site tagline
 - **Cache Duration**: Set how long to cache the generated content
 
+## Content Processing
+
+The plugin processes your content to generate clean, readable descriptions for the llms.txt file.
+
+### How Descriptions are Generated
+
+For each post/page, the plugin looks for a description in this order:
+
+1. **SEO Meta Description** (recommended) - From Yoast SEO, Rank Math, or All in One SEO
+2. **Post Excerpt** - The manual excerpt if set
+3. **Post Content** - Extracted from the actual content
+
+### Shortcodes & Gutenberg Blocks
+
+The plugin attempts to process shortcodes and Gutenberg blocks to extract their rendered content:
+
+- **Standard shortcodes** - Processed via `do_shortcode()`
+- **Gutenberg blocks** - Processed via `do_blocks()`
+
+#### Limitations
+
+Some shortcodes and blocks may not render properly because they:
+
+- **Require JavaScript** - Many modern plugins render content client-side via JavaScript/AJAX. Server-side processing cannot execute JavaScript.
+- **Check for frontend context** - Some plugins check `is_singular()`, `is_main_query()`, or similar conditions and return empty when not on a real page.
+- **Need user interaction** - Dynamic content that depends on user state won't work.
+- **Load data asynchronously** - AJAX-based content loaders won't execute.
+
+**Examples of potentially problematic shortcodes:**
+- External data fetchers
+- Interactive elements
+
+#### Recommended Solution
+
+For pages with dynamic shortcodes or blocks, **use SEO meta descriptions**:
+
+1. Install an SEO plugin (Yoast, Rank Math, or All in One SEO)
+2. Edit the page and add a custom meta description
+3. The plugin will use this description instead of parsing the content
+
+This gives you full control over how each page is described in llms.txt, and ensures consistent, clean output regardless of what shortcodes or blocks the page uses.
+
+#### Unprocessed Shortcodes
+
+Any shortcodes that fail to process are automatically stripped from the output, so you won't see raw `[shortcode]` syntax in your llms.txt file.
+
 ## Hooks & Filters
 
 ### Filters
@@ -150,63 +196,6 @@ Website: https://yoursite.com
 
 - [Category Name](https://yoursite.com/category/slug.md): Category description
 ```
-
-## Development
-
-### Structure
-
-```
-llms-txt-generator/
-├── assets/
-│   ├── css/admin.css
-│   └── js/admin.js
-├── languages/
-├── src/
-│   ├── Admin/SettingsPage.php
-│   ├── Cache/TransientCache.php
-│   ├── Content/
-│   │   ├── AcfIntegration.php
-│   │   ├── ContentAggregator.php
-│   │   ├── ContentCollection.php
-│   │   └── ContentItem.php
-│   ├── Core/Plugin.php
-│   ├── Generator/
-│   │   ├── LlmsTxtGenerator.php
-│   │   └── MarkdownConverter.php
-│   └── Output/
-│       ├── LlmsTxtEndpoint.php
-│       └── MarkdownEndpoint.php
-├── templates/
-├── vendor/
-├── composer.json
-├── llms-txt-generator.php
-├── README.md
-└── uninstall.php
-```
-
-### Requirements for Development
-
-- PHP 8.2+
-- Composer
-- WordPress 6.4+
-
-### Coding Standards
-
-This plugin follows:
-- PSR-4 autoloading
-- PSR-12 coding style
-- WordPress Coding Standards where applicable
-- Strict types enabled
-
-## Changelog
-
-### 1.0.0
-- Initial release
-- llms.txt generation
-- Markdown output for posts
-- ACF integration
-- SEO meta support
-- Admin settings with Alpine.js
 
 ## License
 
