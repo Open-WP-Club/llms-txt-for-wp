@@ -1,0 +1,19 @@
+{
+    "name": "developer/llms-txt-generator",
+    "description": "Generate llms.txt and Markdown versions of your WordPress content for AI/LLM consumption",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=8.2",
+        "league/html-to-markdown": "^5.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "LlmsTxt\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
