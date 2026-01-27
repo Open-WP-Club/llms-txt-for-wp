@@ -106,7 +106,6 @@ jobs:
           ### 📦 Plugin Download
           - **WordPress Plugin**: [\`${repo_name}.zip\`](https://github.com/${owner}/${repo}/releases/download/${tag_name}/${repo_name}.zip)
           - **Installation**: Download and upload through WordPress Admin → Plugins → Add New → Upload Plugin
-          - **Note**: All dependencies are included - no Composer required on your server!
 
           *Built automatically from tag ${tag_name}*`;
 
