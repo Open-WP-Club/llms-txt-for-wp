@@ -1,6 +1,0 @@
-- even if disabled txt still available
-- disable button is good, enable is bad
-- the refresh button still dosn't work
-- Shortcodes still dont work
-- [Scholar Profile](http://patka.local/scholar-profile.md): [scholar_profile sort_by="citations" sort_order="desc"]
-- MD generated pages shows the page for some reason

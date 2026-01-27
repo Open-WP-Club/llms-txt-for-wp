@@ -136,22 +136,58 @@ final class ContentAggregator
 
         // Try post excerpt.
         if (!empty($post->post_excerpt)) {
-            $excerpt = strip_shortcodes($post->post_excerpt);
+            $excerpt = $this->processContent($post->post_excerpt, $post);
             if (!empty(trim($excerpt))) {
                 return $this->truncateDescription($excerpt);
             }
         }
 
-        // Generate from content - strip shortcodes first
-        $content = strip_shortcodes($post->post_content);
-        $content = wp_strip_all_tags($content);
-        $content = trim($content);
+        // Generate from content - execute shortcodes and convert to text
+        $content = $this->processContent($post->post_content, $post);
 
         if (!empty($content)) {
             return $this->truncateDescription($content);
         }
 
         return null;
+    }
+
+    /**
+     * Process content by executing shortcodes and converting to plain text.
+     *
+     * @param string   $content The content to process.
+     * @param \WP_Post $post    The post context.
+     * @return string Processed plain text content.
+     */
+    private function processContent(string $content, \WP_Post $post): string
+    {
+        if (empty($content)) {
+            return '';
+        }
+
+        // Set up post context for shortcodes that depend on global $post
+        $originalPost = $GLOBALS['post'] ?? null;
+        $GLOBALS['post'] = $post;
+        setup_postdata($post);
+
+        // Apply the_content filter which includes do_shortcode at priority 11
+        // This ensures all shortcodes are processed including those registered late
+        $processed = apply_filters('the_content', $content);
+
+        // Restore original post context
+        if ($originalPost) {
+            $GLOBALS['post'] = $originalPost;
+            setup_postdata($originalPost);
+        } else {
+            wp_reset_postdata();
+        }
+
+        // Convert HTML to plain text
+        $processed = wp_strip_all_tags($processed);
+        $processed = html_entity_decode($processed, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $processed = preg_replace('/\s+/', ' ', $processed) ?? $processed;
+
+        return trim($processed);
     }
 
     /**

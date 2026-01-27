@@ -2,47 +2,52 @@
  * LLMs.txt Generator - Admin JavaScript
  */
 
-document.addEventListener('alpine:init', () => {
-    Alpine.data('llmsTxtSettings', () => ({
-        isClearing: false,
-        message: '',
-        isError: false,
+document.addEventListener('DOMContentLoaded', () => {
+    const clearButton = document.getElementById('llms-clear-cache');
+    const messageEl = document.getElementById('llms-cache-message');
 
-        async clearCache() {
-            this.isClearing = true;
-            this.message = '';
+    if (!clearButton || !messageEl) {
+        return;
+    }
 
-            try {
-                const response = await fetch(llmsTxtAdmin.ajaxUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: new URLSearchParams({
-                        action: 'llms_txt_clear_cache',
-                        nonce: llmsTxtAdmin.nonce,
-                    }),
-                });
+    clearButton.addEventListener('click', async () => {
+        clearButton.disabled = true;
+        clearButton.textContent = llmsTxtAdmin.strings.clearing || 'Clearing...';
+        messageEl.style.display = 'none';
 
-                const data = await response.json();
+        try {
+            const response = await fetch(llmsTxtAdmin.ajaxUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    action: 'llms_txt_clear_cache',
+                    nonce: llmsTxtAdmin.nonce,
+                }),
+            });
 
-                if (data.success) {
-                    this.message = llmsTxtAdmin.strings.cacheCleared;
-                    this.isError = false;
-                } else {
-                    this.message = data.data?.message || llmsTxtAdmin.strings.error;
-                    this.isError = true;
-                }
-            } catch (error) {
-                this.message = llmsTxtAdmin.strings.error;
-                this.isError = true;
-            } finally {
-                this.isClearing = false;
+            const data = await response.json();
 
-                setTimeout(() => {
-                    this.message = '';
-                }, 4000);
+            if (data.success) {
+                messageEl.textContent = llmsTxtAdmin.strings.cacheCleared;
+                messageEl.className = 'llms-txt-message success';
+            } else {
+                messageEl.textContent = data.data?.message || llmsTxtAdmin.strings.error;
+                messageEl.className = 'llms-txt-message error';
             }
+            messageEl.style.display = 'inline-flex';
+        } catch (error) {
+            messageEl.textContent = llmsTxtAdmin.strings.error;
+            messageEl.className = 'llms-txt-message error';
+            messageEl.style.display = 'inline-flex';
+        } finally {
+            clearButton.disabled = false;
+            clearButton.textContent = llmsTxtAdmin.strings.clearCache || 'Clear Cache';
+
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 4000);
         }
-    }));
+    });
 });

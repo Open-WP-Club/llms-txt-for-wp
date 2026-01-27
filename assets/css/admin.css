@@ -22,7 +22,6 @@
 
 /* Main container */
 .llms-txt-wrap {
-    max-width: 900px;
     margin: 20px 0;
 }
 
@@ -228,52 +227,15 @@
     margin: 0;
 }
 
-/* Toggle switch style for single checkboxes */
+/* Simple checkbox style */
 .llms-txt-toggle {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 
 .llms-txt-toggle input[type="checkbox"] {
-    position: relative;
-    width: 40px;
-    height: 22px;
-    appearance: none;
-    -webkit-appearance: none;
-    background: #b4b9be;
-    border-radius: 11px;
-    cursor: pointer;
-    transition: background 0.2s ease;
     margin: 0;
-    border: none;
-    outline: none;
-    flex-shrink: 0;
-}
-
-.llms-txt-toggle input[type="checkbox"]:checked {
-    background: var(--llms-primary);
-}
-
-.llms-txt-toggle input[type="checkbox"]::before {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 16px;
-    height: 16px;
-    background: #fff;
-    border-radius: 50%;
-    transition: transform 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.llms-txt-toggle input[type="checkbox"]:checked::before {
-    transform: translateX(18px);
-}
-
-.llms-txt-toggle input[type="checkbox"]:focus {
-    box-shadow: 0 0 0 2px rgba(34, 113, 177, 0.25);
 }
 
 .llms-txt-toggle-label {
@@ -407,9 +369,4 @@
         flex-direction: column;
         align-items: flex-start;
     }
-}
-
-/* Hidden utility */
-[x-cloak] {
-    display: none !important;
 }

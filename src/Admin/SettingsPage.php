@@ -61,17 +61,9 @@ final class SettingsPage
         }
 
         wp_enqueue_script(
-            'alpinejs',
-            'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js',
-            [],
-            '3.14.0',
-            ['in_footer' => true, 'strategy' => 'defer']
-        );
-
-        wp_enqueue_script(
             'llms-txt-admin',
             LLMS_TXT_URL . 'assets/js/admin.js',
-            ['alpinejs'],
+            [],
             LLMS_TXT_VERSION,
             ['in_footer' => true]
         );
@@ -82,6 +74,8 @@ final class SettingsPage
             'strings' => [
                 'cacheCleared' => __('Cache cleared successfully!', 'llms-txt-generator'),
                 'error' => __('An error occurred.', 'llms-txt-generator'),
+                'clearing' => __('Clearing...', 'llms-txt-generator'),
+                'clearCache' => __('Clear Cache', 'llms-txt-generator'),
             ],
         ]);
 
@@ -112,7 +106,7 @@ final class SettingsPage
             2592000 => __('30 days', 'llms-txt-generator'),
         ];
         ?>
-        <div class="wrap llms-txt-wrap" x-data="llmsTxtSettings()">
+        <div class="wrap llms-txt-wrap">
 
             <!-- Header -->
             <div class="llms-txt-header">
@@ -125,14 +119,12 @@ final class SettingsPage
                 </p>
                 <div class="llms-txt-actions">
                     <a href="<?php echo esc_url($previewUrl); ?>" target="_blank" class="button button-primary">
-                        <span class="dashicons dashicons-external" style="margin-top: 3px;"></span>
                         <?php esc_html_e('View llms.txt', 'llms-txt-generator'); ?>
                     </a>
-                    <button type="button" class="button button-secondary" @click="clearCache()" :disabled="isClearing">
-                        <span class="dashicons dashicons-update" style="margin-top: 3px;" :class="{'spin': isClearing}"></span>
-                        <span x-text="isClearing ? '<?php esc_attr_e('Clearing...', 'llms-txt-generator'); ?>' : '<?php esc_attr_e('Clear Cache', 'llms-txt-generator'); ?>'"></span>
+                    <button type="button" class="button button-secondary" id="llms-clear-cache">
+                        <?php esc_html_e('Clear Cache', 'llms-txt-generator'); ?>
                     </button>
-                    <span x-cloak x-show="message" x-text="message" class="llms-txt-message" :class="{'success': !isError, 'error': isError}"></span>
+                    <span id="llms-cache-message" class="llms-txt-message" style="display: none;"></span>
                 </div>
             </div>
 
@@ -358,15 +350,6 @@ final class SettingsPage
             </form>
 
         </div>
-
-        <style>
-            .dashicons.spin {
-                animation: llms-spin 1s linear infinite;
-            }
-            @keyframes llms-spin {
-                100% { transform: rotate(360deg); }
-            }
-        </style>
         <?php
     }
 
