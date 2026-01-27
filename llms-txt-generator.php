@@ -3,7 +3,7 @@
  * Plugin Name:       LLMs.txt Generator
  * Plugin URI:        https://github.com/open-wp-club/llms-txt-for-wp
  * Description:       Generate llms.txt and Markdown versions of your WordPress content for AI/LLM consumption.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.4
  * Requires PHP:      8.2
  * Author:            Openwpclub.com
@@ -27,7 +27,7 @@ use LlmsTxt\Core\Plugin;
 defined('ABSPATH') || exit;
 
 // Plugin constants.
-define('LLMS_TXT_VERSION', '1.0.0');
+define('LLMS_TXT_VERSION', '1.1.0');
 define('LLMS_TXT_FILE', __FILE__);
 define('LLMS_TXT_PATH', plugin_dir_path(__FILE__));
 define('LLMS_TXT_URL', plugin_dir_url(__FILE__));

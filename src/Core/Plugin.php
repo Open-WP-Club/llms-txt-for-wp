@@ -88,6 +88,35 @@ final class Plugin
             $vars[] = 'llms_md';
             return $vars;
         });
+
+        // Add llms.txt reference to robots.txt.
+        add_filter('robots_txt', [$this, 'addRobotsTxtEntry'], 10, 2);
+    }
+
+    /**
+     * Add llms.txt entry to robots.txt.
+     *
+     * @param string $output The robots.txt output.
+     * @param bool   $public Whether the site is public.
+     * @return string Modified robots.txt output.
+     */
+    public function addRobotsTxtEntry(string $output, bool $public): string
+    {
+        if (!$public) {
+            return $output;
+        }
+
+        $settings = self::getSettings();
+
+        if (!($settings['enabled'] ?? true) || !($settings['robots_txt_entry'] ?? true)) {
+            return $output;
+        }
+
+        $llmsTxtUrl = home_url('/llms.txt');
+        $output .= "\n# LLMs.txt - AI-friendly content index\n";
+        $output .= "Llms-Txt: {$llmsTxtUrl}\n";
+
+        return $output;
     }
 
     /**
@@ -106,6 +135,14 @@ final class Plugin
             'posts_per_type' => 100,
             'include_acf' => true,
             'include_meta' => true,
+            'include_author' => true,
+            'include_date' => true,
+            'include_categories' => true,
+            'include_tags' => true,
+            'excluded_posts' => [],
+            'excluded_categories' => [],
+            'min_content_length' => 0,
+            'robots_txt_entry' => true,
             'custom_header' => '',
             'custom_description' => '',
             'link_descriptions' => true,
@@ -144,6 +181,14 @@ final class Plugin
             'posts_per_type' => 100,
             'include_acf' => true,
             'include_meta' => true,
+            'include_author' => true,
+            'include_date' => true,
+            'include_categories' => true,
+            'include_tags' => true,
+            'excluded_posts' => [],
+            'excluded_categories' => [],
+            'min_content_length' => 0,
+            'robots_txt_entry' => true,
             'custom_header' => '',
             'custom_description' => '',
             'link_descriptions' => true,

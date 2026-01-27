@@ -38,9 +38,19 @@ final class ContentAggregator
         $postTypes = $settings['post_types'] ?? ['post', 'page'];
         $limit = (int) ($settings['posts_per_type'] ?? 100);
         $includeDescriptions = (bool) ($settings['link_descriptions'] ?? true);
+        $excludedPosts = $settings['excluded_posts'] ?? [];
+        $excludedCategories = $settings['excluded_categories'] ?? [];
+        $minContentLength = (int) ($settings['min_content_length'] ?? 0);
 
         foreach ($postTypes as $postType) {
-            $items = $this->collectPostType($postType, $limit, $includeDescriptions);
+            $items = $this->collectPostType(
+                $postType,
+                $limit,
+                $includeDescriptions,
+                $excludedPosts,
+                $excludedCategories,
+                $minContentLength
+            );
             $collection->addSection($this->getPostTypeLabel($postType), $items);
         }
 
@@ -70,11 +80,20 @@ final class ContentAggregator
      * @param string $postType            Post type slug.
      * @param int    $limit               Maximum number of posts.
      * @param bool   $includeDescriptions Whether to include descriptions.
+     * @param array  $excludedPosts       Post IDs to exclude.
+     * @param array  $excludedCategories  Category IDs to exclude.
+     * @param int    $minContentLength    Minimum content length.
      * @return ContentItem[] Array of content items.
      */
-    private function collectPostType(string $postType, int $limit, bool $includeDescriptions): array
-    {
-        $posts = get_posts([
+    private function collectPostType(
+        string $postType,
+        int $limit,
+        bool $includeDescriptions,
+        array $excludedPosts = [],
+        array $excludedCategories = [],
+        int $minContentLength = 0
+    ): array {
+        $queryArgs = [
             'post_type' => $postType,
             'post_status' => 'publish',
             'posts_per_page' => $limit,
@@ -82,12 +101,32 @@ final class ContentAggregator
             'order' => 'DESC',
             'no_found_rows' => true,
             'update_post_meta_cache' => $includeDescriptions,
-            'update_post_term_cache' => false,
-        ]);
+            'update_post_term_cache' => !empty($excludedCategories),
+        ];
+
+        // Exclude specific posts.
+        if (!empty($excludedPosts)) {
+            $queryArgs['post__not_in'] = array_map('intval', $excludedPosts);
+        }
+
+        // Exclude posts in specific categories (only for post types that support categories).
+        if (!empty($excludedCategories) && is_object_in_taxonomy($postType, 'category')) {
+            $queryArgs['category__not_in'] = array_map('intval', $excludedCategories);
+        }
+
+        $posts = get_posts($queryArgs);
 
         $items = [];
 
         foreach ($posts as $post) {
+            // Filter by minimum content length.
+            if ($minContentLength > 0) {
+                $contentLength = mb_strlen(wp_strip_all_tags($post->post_content));
+                if ($contentLength < $minContentLength) {
+                    continue;
+                }
+            }
+
             $description = $includeDescriptions
                 ? $this->getPostDescription($post)
                 : null;

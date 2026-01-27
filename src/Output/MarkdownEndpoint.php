@@ -164,8 +164,11 @@ final class MarkdownEndpoint
         $parts[] = '';
 
         // Meta info
-        $parts[] = $this->buildMetaInfo($post);
-        $parts[] = '';
+        $metaInfo = $this->buildMetaInfo($post, $settings);
+        if (!empty($metaInfo)) {
+            $parts[] = $metaInfo;
+            $parts[] = '';
+        }
 
         // Set up post context for shortcodes that depend on global $post
         global $wp_query;
@@ -210,32 +213,40 @@ final class MarkdownEndpoint
     /**
      * Build meta information for a post.
      */
-    private function buildMetaInfo(WP_Post $post): string
+    private function buildMetaInfo(WP_Post $post, array $settings): string
     {
         $lines = [];
 
         // Date
-        $date = get_the_date('Y-m-d', $post);
-        $lines[] = "**Published:** {$date}";
+        if ($settings['include_date'] ?? true) {
+            $date = get_the_date('Y-m-d', $post);
+            $lines[] = "**Published:** {$date}";
+        }
 
         // Author
-        $author = get_the_author_meta('display_name', $post->post_author);
-        if (!empty($author)) {
-            $lines[] = "**Author:** {$author}";
+        if ($settings['include_author'] ?? true) {
+            $author = get_the_author_meta('display_name', $post->post_author);
+            if (!empty($author)) {
+                $lines[] = "**Author:** {$author}";
+            }
         }
 
         // Categories
-        $categories = get_the_category($post->ID);
-        if (!empty($categories)) {
-            $catNames = array_map(static fn($cat) => $cat->name, $categories);
-            $lines[] = '**Categories:** ' . implode(', ', $catNames);
+        if ($settings['include_categories'] ?? true) {
+            $categories = get_the_category($post->ID);
+            if (!empty($categories)) {
+                $catNames = array_map(static fn($cat) => $cat->name, $categories);
+                $lines[] = '**Categories:** ' . implode(', ', $catNames);
+            }
         }
 
         // Tags
-        $tags = get_the_tags($post->ID);
-        if (!empty($tags) && !is_wp_error($tags)) {
-            $tagNames = array_map(static fn($tag) => $tag->name, $tags);
-            $lines[] = '**Tags:** ' . implode(', ', $tagNames);
+        if ($settings['include_tags'] ?? true) {
+            $tags = get_the_tags($post->ID);
+            if (!empty($tags) && !is_wp_error($tags)) {
+                $tagNames = array_map(static fn($tag) => $tag->name, $tags);
+                $lines[] = '**Tags:** ' . implode(', ', $tagNames);
+            }
         }
 
         // Original URL

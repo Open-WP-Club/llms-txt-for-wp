@@ -176,6 +176,29 @@ final class SettingsPage
                                     </p>
                                 </td>
                             </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Robots.txt', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-toggle">
+                                        <input type="checkbox"
+                                               id="llms_robots_txt_entry"
+                                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[robots_txt_entry]"
+                                               value="1"
+                                               <?php checked($settings['robots_txt_entry'] ?? true); ?>>
+                                        <label for="llms_robots_txt_entry" class="llms-txt-toggle-label">
+                                            <?php esc_html_e('Add llms.txt reference to robots.txt', 'llms-txt-generator'); ?>
+                                        </label>
+                                    </div>
+                                    <p class="description">
+                                        <?php
+                                        printf(
+                                            esc_html__('Adds "Llms-Txt: %s" to your robots.txt file so AI crawlers can discover it.', 'llms-txt-generator'),
+                                            esc_html(home_url('/llms.txt'))
+                                        );
+                                        ?>
+                                    </p>
+                                </td>
+                            </tr>
                         </table>
                     </div>
                 </div>
@@ -303,6 +326,141 @@ final class SettingsPage
                                     </p>
                                 </td>
                             </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Author', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-toggle">
+                                        <input type="checkbox"
+                                               id="llms_include_author"
+                                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[include_author]"
+                                               value="1"
+                                               <?php checked($settings['include_author'] ?? true); ?>>
+                                        <label for="llms_include_author" class="llms-txt-toggle-label">
+                                            <?php esc_html_e('Include author name in Markdown output', 'llms-txt-generator'); ?>
+                                        </label>
+                                    </div>
+                                    <p class="description">
+                                        <?php esc_html_e('Shows the author name in the metadata section of individual Markdown files.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Published Date', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-toggle">
+                                        <input type="checkbox"
+                                               id="llms_include_date"
+                                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[include_date]"
+                                               value="1"
+                                               <?php checked($settings['include_date'] ?? true); ?>>
+                                        <label for="llms_include_date" class="llms-txt-toggle-label">
+                                            <?php esc_html_e('Include published date in Markdown output', 'llms-txt-generator'); ?>
+                                        </label>
+                                    </div>
+                                    <p class="description">
+                                        <?php esc_html_e('Shows the publication date in the metadata section of individual Markdown files.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Categories', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-toggle">
+                                        <input type="checkbox"
+                                               id="llms_include_categories"
+                                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[include_categories]"
+                                               value="1"
+                                               <?php checked($settings['include_categories'] ?? true); ?>>
+                                        <label for="llms_include_categories" class="llms-txt-toggle-label">
+                                            <?php esc_html_e('Include categories in Markdown output', 'llms-txt-generator'); ?>
+                                        </label>
+                                    </div>
+                                    <p class="description">
+                                        <?php esc_html_e('Shows the post categories in the metadata section of individual Markdown files.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Tags', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-toggle">
+                                        <input type="checkbox"
+                                               id="llms_include_tags"
+                                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[include_tags]"
+                                               value="1"
+                                               <?php checked($settings['include_tags'] ?? true); ?>>
+                                        <label for="llms_include_tags" class="llms-txt-toggle-label">
+                                            <?php esc_html_e('Include tags in Markdown output', 'llms-txt-generator'); ?>
+                                        </label>
+                                    </div>
+                                    <p class="description">
+                                        <?php esc_html_e('Shows the post tags in the metadata section of individual Markdown files.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Filtering -->
+                <div class="llms-txt-card">
+                    <div class="llms-txt-card-header">
+                        <h2><span class="dashicons dashicons-filter"></span> <?php esc_html_e('Filtering', 'llms-txt-generator'); ?></h2>
+                    </div>
+                    <div class="llms-txt-card-body">
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Excluded Posts', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <input type="text"
+                                           name="<?php echo esc_attr(self::OPTION_NAME); ?>[excluded_posts]"
+                                           value="<?php echo esc_attr(implode(', ', $settings['excluded_posts'] ?? [])); ?>"
+                                           class="large-text"
+                                           placeholder="<?php esc_attr_e('e.g., 123, 456, 789', 'llms-txt-generator'); ?>">
+                                    <p class="description">
+                                        <?php esc_html_e('Comma-separated list of post/page IDs to exclude from llms.txt.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Excluded Categories', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-checkbox-group">
+                                        <?php
+                                        $categories = get_categories(['hide_empty' => false]);
+                                        $excludedCategories = $settings['excluded_categories'] ?? [];
+                                        foreach ($categories as $category):
+                                            $checked = in_array($category->term_id, $excludedCategories, true);
+                                        ?>
+                                            <label>
+                                                <input type="checkbox"
+                                                       name="<?php echo esc_attr(self::OPTION_NAME); ?>[excluded_categories][]"
+                                                       value="<?php echo esc_attr((string) $category->term_id); ?>"
+                                                       <?php checked($checked); ?>>
+                                                <?php echo esc_html($category->name); ?>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <p class="description">
+                                        <?php esc_html_e('Posts in these categories will be excluded from llms.txt.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Minimum Content Length', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <input type="number"
+                                           name="<?php echo esc_attr(self::OPTION_NAME); ?>[min_content_length]"
+                                           value="<?php echo esc_attr((string) ($settings['min_content_length'] ?? 0)); ?>"
+                                           min="0"
+                                           max="10000"
+                                           step="1">
+                                    <span class="description"><?php esc_html_e('characters', 'llms-txt-generator'); ?></span>
+                                    <p class="description">
+                                        <?php esc_html_e('Posts with content shorter than this will be excluded. Set to 0 to include all posts.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
                         </table>
                     </div>
                 </div>
@@ -376,6 +534,34 @@ final class SettingsPage
         $sanitized['link_descriptions'] = !empty($input['link_descriptions']);
         $sanitized['include_acf'] = !empty($input['include_acf']);
         $sanitized['include_meta'] = !empty($input['include_meta']);
+        $sanitized['include_author'] = !empty($input['include_author']);
+        $sanitized['include_date'] = !empty($input['include_date']);
+        $sanitized['include_categories'] = !empty($input['include_categories']);
+        $sanitized['include_tags'] = !empty($input['include_tags']);
+        $sanitized['robots_txt_entry'] = !empty($input['robots_txt_entry']);
+
+        // Excluded posts - parse comma-separated IDs.
+        $sanitized['excluded_posts'] = [];
+        if (!empty($input['excluded_posts'])) {
+            $ids = is_array($input['excluded_posts'])
+                ? $input['excluded_posts']
+                : explode(',', $input['excluded_posts']);
+            $sanitized['excluded_posts'] = array_values(array_filter(array_map(function ($id) {
+                $id = (int) trim($id);
+                return $id > 0 ? $id : null;
+            }, $ids)));
+        }
+
+        // Excluded categories.
+        $allCategories = get_categories(['hide_empty' => false, 'fields' => 'ids']);
+        $sanitized['excluded_categories'] = isset($input['excluded_categories']) && is_array($input['excluded_categories'])
+            ? array_values(array_map('intval', array_intersect($input['excluded_categories'], $allCategories)))
+            : [];
+
+        // Minimum content length.
+        $sanitized['min_content_length'] = isset($input['min_content_length'])
+            ? min(10000, max(0, (int) $input['min_content_length']))
+            : 0;
 
         $sanitized['custom_header'] = isset($input['custom_header'])
             ? sanitize_text_field($input['custom_header'])
@@ -404,6 +590,14 @@ final class SettingsPage
             'posts_per_type' => 100,
             'include_acf' => true,
             'include_meta' => true,
+            'include_author' => true,
+            'include_date' => true,
+            'include_categories' => true,
+            'include_tags' => true,
+            'excluded_posts' => [],
+            'excluded_categories' => [],
+            'min_content_length' => 0,
+            'robots_txt_entry' => true,
             'custom_header' => '',
             'custom_description' => '',
             'link_descriptions' => true,
