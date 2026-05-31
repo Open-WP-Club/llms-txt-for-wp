@@ -34,14 +34,18 @@ final class ContentAggregator
         $settings = Plugin::getSettings();
         $collection = new ContentCollection();
 
-        // Collect post types.
-        $postTypes = $settings['post_types'] ?? ['post', 'page'];
-        $limit = (int) ($settings['posts_per_type'] ?? 100);
+        $postTypes          = $settings['post_types'] ?? ['post', 'page'];
+        $limit              = (int) ($settings['posts_per_type'] ?? 100);
         $includeDescriptions = (bool) ($settings['link_descriptions'] ?? true);
-        $excludedPosts = $settings['excluded_posts'] ?? [];
+        $excludedPosts      = $settings['excluded_posts'] ?? [];
         $excludedCategories = $settings['excluded_categories'] ?? [];
-        $minContentLength = (int) ($settings['min_content_length'] ?? 0);
+        $minContentLength   = (int) ($settings['min_content_length'] ?? 0);
+        $lang               = (string) ($settings['language'] ?? '');
 
+        // Apply language switch for WPML before running queries.
+        MultilingualIntegration::switchLanguage($lang);
+
+        // Collect post types.
         foreach ($postTypes as $postType) {
             $items = $this->collectPostType(
                 $postType,
@@ -49,7 +53,8 @@ final class ContentAggregator
                 $includeDescriptions,
                 $excludedPosts,
                 $excludedCategories,
-                $minContentLength
+                $minContentLength,
+                $lang
             );
             $collection->addSection($this->getPostTypeLabel($postType), $items);
         }
@@ -57,19 +62,22 @@ final class ContentAggregator
         // Collect taxonomies.
         $taxonomies = $settings['taxonomies'] ?? [];
         foreach ($taxonomies as $taxonomy) {
-            $items = $this->collectTaxonomy($taxonomy, $includeDescriptions);
+            $items = $this->collectTaxonomy($taxonomy, $includeDescriptions, $lang);
             if (!empty($items)) {
                 $collection->addSection($this->getTaxonomyLabel($taxonomy), $items);
             }
         }
+
+        // Restore language after all queries are done.
+        MultilingualIntegration::restoreLanguage();
 
         /**
          * Filter the aggregated content collection.
          *
          * @since 1.0.0
          *
-         * @param ContentCollection $collection The content collection.
-         * @param array            $settings   Plugin settings.
+         * @param ContentCollection    $collection The content collection.
+         * @param array<string, mixed> $settings   Plugin settings.
          */
         return apply_filters('llms_txt_content_collection', $collection, $settings);
     }
@@ -77,12 +85,13 @@ final class ContentAggregator
     /**
      * Collect items from a post type.
      *
-     * @param string $postType            Post type slug.
-     * @param int    $limit               Maximum number of posts.
-     * @param bool   $includeDescriptions Whether to include descriptions.
-     * @param array  $excludedPosts       Post IDs to exclude.
-     * @param array  $excludedCategories  Category IDs to exclude.
-     * @param int    $minContentLength    Minimum content length.
+     * @param string   $postType            Post type slug.
+     * @param int      $limit               Maximum number of posts.
+     * @param bool     $includeDescriptions Whether to include descriptions.
+     * @param array    $excludedPosts       Post IDs to exclude.
+     * @param array    $excludedCategories  Category IDs to exclude.
+     * @param int      $minContentLength    Minimum content length.
+     * @param string   $lang                Language code for Polylang (empty = all).
      * @return ContentItem[] Array of content items.
      */
     private function collectPostType(
@@ -91,35 +100,35 @@ final class ContentAggregator
         bool $includeDescriptions,
         array $excludedPosts = [],
         array $excludedCategories = [],
-        int $minContentLength = 0
+        int $minContentLength = 0,
+        string $lang = ''
     ): array {
         $queryArgs = [
-            'post_type' => $postType,
-            'post_status' => 'publish',
-            'posts_per_page' => $limit,
-            'orderby' => 'date',
-            'order' => 'DESC',
-            'no_found_rows' => true,
+            'post_type'              => $postType,
+            'post_status'            => 'publish',
+            'posts_per_page'         => $limit,
+            'orderby'                => 'date',
+            'order'                  => 'DESC',
+            'no_found_rows'          => true,
             'update_post_meta_cache' => $includeDescriptions,
             'update_post_term_cache' => !empty($excludedCategories),
         ];
 
-        // Exclude specific posts.
         if (!empty($excludedPosts)) {
             $queryArgs['post__not_in'] = array_map('intval', $excludedPosts);
         }
 
-        // Exclude posts in specific categories (only for post types that support categories).
         if (!empty($excludedCategories) && is_object_in_taxonomy($postType, 'category')) {
             $queryArgs['category__not_in'] = array_map('intval', $excludedCategories);
         }
 
-        $posts = get_posts($queryArgs);
+        // Polylang language filter.
+        $queryArgs = MultilingualIntegration::applyToQueryArgs($queryArgs, $lang);
 
+        $posts = get_posts($queryArgs);
         $items = [];
 
         foreach ($posts as $post) {
-            // Filter by minimum content length.
             if ($minContentLength > 0) {
                 $contentLength = mb_strlen(wp_strip_all_tags($post->post_content));
                 if ($contentLength < $minContentLength) {
@@ -144,7 +153,7 @@ final class ContentAggregator
     /**
      * Get description for a post.
      *
-     * Tries meta description first, then excerpt, then generates from content.
+     * Priority: WooCommerce short description → Elementor content → SEO meta → excerpt → generated.
      *
      * @param \WP_Post $post The post.
      * @return string|null Description or null.
@@ -152,6 +161,20 @@ final class ContentAggregator
     private function getPostDescription(\WP_Post $post): ?string
     {
         $settings = Plugin::getSettings();
+
+        // WooCommerce: short description takes priority for products.
+        if ($post->post_type === 'product' && WooCommerceIntegration::isActive()) {
+            $wooDesc = WooCommerceIntegration::getProductDescription($post);
+            if ($wooDesc !== null) {
+                return $this->truncateDescription($wooDesc);
+            }
+        }
+
+        // Page builders that store content outside post_content (Elementor, Bricks, Oxygen, Thrive, SiteOrigin).
+        $builderText = PageBuilderIntegration::extractPageBuilderText($post);
+        if ($builderText !== null) {
+            return $this->truncateDescription($builderText);
+        }
 
         // Try Yoast SEO meta description.
         if ($settings['include_meta'] ?? true) {
@@ -181,9 +204,8 @@ final class ContentAggregator
             }
         }
 
-        // Generate from content - execute shortcodes and convert to text
+        // Generate from content.
         $content = $this->processContent($post->post_content, $post);
-
         if (!empty($content)) {
             return $this->truncateDescription($content);
         }
@@ -204,26 +226,19 @@ final class ContentAggregator
             return '';
         }
 
-        // Set up post context for shortcodes/blocks that depend on global $post
         $originalPost = $GLOBALS['post'] ?? null;
         $GLOBALS['post'] = $post;
         setup_postdata($post);
 
-        // Process Gutenberg blocks first (if function exists - WP 5.0+)
         if (function_exists('do_blocks')) {
             $content = do_blocks($content);
         }
 
-        // Process shortcodes
         $processed = do_shortcode($content);
-
-        // Apply other content filters (wpautop, etc.) but avoid recursion
-        // by not using the_content filter again
         $processed = wptexturize($processed);
         $processed = convert_smilies($processed);
         $processed = wp_filter_content_tags($processed);
 
-        // Restore original post context
         if ($originalPost) {
             $GLOBALS['post'] = $originalPost;
             setup_postdata($originalPost);
@@ -231,14 +246,9 @@ final class ContentAggregator
             wp_reset_postdata();
         }
 
-        // Convert HTML to plain text
         $processed = wp_strip_all_tags($processed);
         $processed = html_entity_decode($processed, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-        // Remove any unprocessed shortcodes that remain
         $processed = preg_replace('/\[[^\]]+\]/', '', $processed) ?? $processed;
-
-        // Normalize whitespace
         $processed = preg_replace('/\s+/', ' ', $processed) ?? $processed;
 
         return trim($processed);
@@ -247,7 +257,7 @@ final class ContentAggregator
     /**
      * Truncate description to reasonable length.
      *
-     * @param string $text Text to truncate.
+     * @param string $text      Text to truncate.
      * @param int    $maxLength Maximum length.
      * @return string Truncated text.
      */
@@ -261,7 +271,7 @@ final class ContentAggregator
             return $text;
         }
 
-        $text = mb_substr($text, 0, $maxLength);
+        $text     = mb_substr($text, 0, $maxLength);
         $lastSpace = mb_strrpos($text, ' ');
 
         if ($lastSpace !== false && $lastSpace > $maxLength - 30) {
@@ -276,15 +286,19 @@ final class ContentAggregator
      *
      * @param string $taxonomy            Taxonomy slug.
      * @param bool   $includeDescriptions Whether to include descriptions.
+     * @param string $lang                Language code for Polylang (empty = all).
      * @return ContentItem[] Array of content items.
      */
-    private function collectTaxonomy(string $taxonomy, bool $includeDescriptions): array
+    private function collectTaxonomy(string $taxonomy, bool $includeDescriptions, string $lang = ''): array
     {
-        $terms = get_terms([
-            'taxonomy' => $taxonomy,
+        $args = [
+            'taxonomy'   => $taxonomy,
             'hide_empty' => true,
-            'number' => 50,
-        ]);
+            'number'     => 50,
+        ];
+
+        $args  = MultilingualIntegration::applyToQueryArgs($args, $lang);
+        $terms = get_terms($args);
 
         if (is_wp_error($terms) || empty($terms)) {
             return [];
@@ -314,9 +328,6 @@ final class ContentAggregator
 
     /**
      * Get human-readable label for a post type.
-     *
-     * @param string $postType Post type slug.
-     * @return string Post type label.
      */
     private function getPostTypeLabel(string $postType): string
     {
@@ -331,9 +342,6 @@ final class ContentAggregator
 
     /**
      * Get human-readable label for a taxonomy.
-     *
-     * @param string $taxonomy Taxonomy slug.
-     * @return string Taxonomy label.
      */
     private function getTaxonomyLabel(string $taxonomy): string
     {
@@ -348,8 +356,6 @@ final class ContentAggregator
 
     /**
      * Get Markdown converter.
-     *
-     * @return MarkdownConverter
      */
     public function getConverter(): MarkdownConverter
     {

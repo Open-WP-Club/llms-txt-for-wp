@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace LlmsTxt\Output;
 
+use LlmsTxt\Cache\TransientCache;
+use LlmsTxt\Content\WooCommerceIntegration;
 use LlmsTxt\Core\Plugin;
 use LlmsTxt\Generator\MarkdownConverter;
 use WP_Post;
@@ -20,7 +22,8 @@ final class MarkdownEndpoint
     private const ACCEPT_HEADER = 'text/markdown';
 
     public function __construct(
-        private readonly MarkdownConverter $converter
+        private readonly MarkdownConverter $converter,
+        private readonly TransientCache $cache
     ) {}
 
     /**
@@ -86,8 +89,16 @@ final class MarkdownEndpoint
          */
         do_action('llms_txt_before_markdown_serve', $post);
 
+        // Check per-post cache first.
+        $cached = $this->cache->getPost($post->ID);
+        if ($cached !== null) {
+            $this->sendResponse($cached, $post);
+            return;
+        }
+
         // Generate markdown
         $markdown = $this->generateMarkdown($post, $settings);
+        $this->cache->setPost($post->ID, $markdown);
 
         // Send response
         $this->sendResponse($markdown, $post);
@@ -199,6 +210,17 @@ final class MarkdownEndpoint
                 $parts[] = '## Additional Information';
                 $parts[] = '';
                 $parts[] = $acfContent;
+            }
+        }
+
+        // WooCommerce product details if applicable
+        if ($post->post_type === 'product' && WooCommerceIntegration::isActive()) {
+            $wooContent = WooCommerceIntegration::buildProductMarkdownSection($post, $settings);
+            if (!empty($wooContent)) {
+                $parts[] = '';
+                $parts[] = '---';
+                $parts[] = '';
+                $parts[] = $wooContent;
             }
         }
 

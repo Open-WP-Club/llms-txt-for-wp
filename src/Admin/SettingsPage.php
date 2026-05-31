@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LlmsTxt\Admin;
 
 use LlmsTxt\Cache\TransientCache;
+use LlmsTxt\Content\MultilingualIntegration;
 use LlmsTxt\Core\Plugin;
 
 /**
@@ -28,6 +29,22 @@ final class SettingsPage
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
         add_action('wp_ajax_llms_txt_clear_cache', [$this, 'handleClearCache']);
         add_filter('plugin_action_links_' . LLMS_TXT_BASENAME, [$this, 'addSettingsLink']);
+
+        // Flush rewrite rules when the 'enabled' toggle changes.
+        add_action('update_option_' . self::OPTION_NAME, [$this, 'maybeFlushRewriteRules'], 10, 2);
+    }
+
+    /**
+     * Flush rewrite rules when the plugin is enabled or disabled.
+     */
+    public function maybeFlushRewriteRules(mixed $oldValue, mixed $newValue): void
+    {
+        $wasEnabled = (bool) (is_array($oldValue) ? ($oldValue['enabled'] ?? true) : true);
+        $isEnabled  = (bool) (is_array($newValue) ? ($newValue['enabled'] ?? true) : true);
+
+        if ($wasEnabled !== $isEnabled) {
+            flush_rewrite_rules();
+        }
     }
 
     public function addMenuPage(): void
@@ -93,11 +110,15 @@ final class SettingsPage
             return;
         }
 
-        $settings = Plugin::getSettings();
-        $previewUrl = home_url('/llms.txt');
-        $postTypes = get_post_types(['public' => true], 'objects');
-        $taxonomies = get_taxonomies(['public' => true], 'objects');
-        $acfActive = function_exists('get_fields');
+        $settings            = Plugin::getSettings();
+        $previewUrl          = home_url('/llms.txt');
+        $previewFullUrl      = home_url('/llms-full.txt');
+        $postTypes           = get_post_types(['public' => true], 'objects');
+        $taxonomies          = get_taxonomies(['public' => true], 'objects');
+        $acfActive           = function_exists('get_fields');
+        $wcActive            = class_exists('WooCommerce');
+        $multilingualActive  = MultilingualIntegration::isAnyActive();
+        $availableLanguages  = $multilingualActive ? MultilingualIntegration::getLanguages() : [];
 
         $cacheDurations = [
             21600 => __('6 hours', 'llms-txt-generator'),
@@ -120,6 +141,9 @@ final class SettingsPage
                 <div class="llms-txt-actions">
                     <a href="<?php echo esc_url($previewUrl); ?>" target="_blank" class="button button-primary">
                         <?php esc_html_e('View llms.txt', 'llms-txt-generator'); ?>
+                    </a>
+                    <a href="<?php echo esc_url($previewFullUrl); ?>" target="_blank" class="button button-secondary">
+                        <?php esc_html_e('View llms-full.txt', 'llms-txt-generator'); ?>
                     </a>
                     <button type="button" class="button button-secondary" id="llms-clear-cache">
                         <?php esc_html_e('Clear Cache', 'llms-txt-generator'); ?>
@@ -161,6 +185,26 @@ final class SettingsPage
                                     </p>
                                 </td>
                             </tr>
+                            <?php if ($multilingualActive && !empty($availableLanguages)): ?>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Language', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <select name="<?php echo esc_attr(self::OPTION_NAME); ?>[language]">
+                                        <option value="" <?php selected($settings['language'] ?? '', ''); ?>>
+                                            <?php esc_html_e('All / Default', 'llms-txt-generator'); ?>
+                                        </option>
+                                        <?php foreach ($availableLanguages as $code => $name): ?>
+                                            <option value="<?php echo esc_attr($code); ?>" <?php selected($settings['language'] ?? '', $code); ?>>
+                                                <?php echo esc_html($name); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p class="description">
+                                        <?php esc_html_e('Only include content in this language in your llms.txt file. Requires WPML or Polylang.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
                             <tr>
                                 <th scope="row"><?php esc_html_e('Cache Duration', 'llms-txt-generator'); ?></th>
                                 <td>
@@ -402,6 +446,91 @@ final class SettingsPage
                     </div>
                 </div>
 
+                <?php if ($wcActive): ?>
+                <!-- WooCommerce Settings -->
+                <div class="llms-txt-card">
+                    <div class="llms-txt-card-header">
+                        <h2><span class="dashicons dashicons-cart"></span> <?php esc_html_e('WooCommerce', 'llms-txt-generator'); ?></h2>
+                    </div>
+                    <div class="llms-txt-card-body">
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Product Price', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-toggle">
+                                        <input type="checkbox"
+                                               id="llms_wc_include_price"
+                                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[wc_include_price]"
+                                               value="1"
+                                               <?php checked($settings['wc_include_price'] ?? true); ?>>
+                                        <label for="llms_wc_include_price" class="llms-txt-toggle-label">
+                                            <?php esc_html_e('Include product price in Markdown output', 'llms-txt-generator'); ?>
+                                        </label>
+                                    </div>
+                                    <p class="description">
+                                        <?php esc_html_e('Shows the current price (or price range for variable products) when viewing a product as Markdown.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Stock Status', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-toggle">
+                                        <input type="checkbox"
+                                               id="llms_wc_include_stock"
+                                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[wc_include_stock]"
+                                               value="1"
+                                               <?php checked($settings['wc_include_stock'] ?? true); ?>>
+                                        <label for="llms_wc_include_stock" class="llms-txt-toggle-label">
+                                            <?php esc_html_e('Include stock availability in Markdown output', 'llms-txt-generator'); ?>
+                                        </label>
+                                    </div>
+                                    <p class="description">
+                                        <?php esc_html_e('Shows whether the product is in stock, and quantity when stock management is enabled.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Product Attributes', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-toggle">
+                                        <input type="checkbox"
+                                               id="llms_wc_include_attributes"
+                                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[wc_include_attributes]"
+                                               value="1"
+                                               <?php checked($settings['wc_include_attributes'] ?? true); ?>>
+                                        <label for="llms_wc_include_attributes" class="llms-txt-toggle-label">
+                                            <?php esc_html_e('Include product attributes in Markdown output', 'llms-txt-generator'); ?>
+                                        </label>
+                                    </div>
+                                    <p class="description">
+                                        <?php esc_html_e('Lists product attributes (size, color, material, etc.) and variation options.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Product Rating', 'llms-txt-generator'); ?></th>
+                                <td>
+                                    <div class="llms-txt-toggle">
+                                        <input type="checkbox"
+                                               id="llms_wc_include_rating"
+                                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[wc_include_rating]"
+                                               value="1"
+                                               <?php checked($settings['wc_include_rating'] ?? true); ?>>
+                                        <label for="llms_wc_include_rating" class="llms-txt-toggle-label">
+                                            <?php esc_html_e('Include average rating in Markdown output', 'llms-txt-generator'); ?>
+                                        </label>
+                                    </div>
+                                    <p class="description">
+                                        <?php esc_html_e('Shows the average customer rating and review count for products that have been reviewed.', 'llms-txt-generator'); ?>
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <!-- Filtering -->
                 <div class="llms-txt-card">
                     <div class="llms-txt-card-header">
@@ -576,6 +705,19 @@ final class SettingsPage
             ? (int) $input['cache_duration']
             : 86400;
 
+        // WooCommerce settings.
+        $sanitized['wc_include_price']      = !empty($input['wc_include_price']);
+        $sanitized['wc_include_stock']      = !empty($input['wc_include_stock']);
+        $sanitized['wc_include_attributes'] = !empty($input['wc_include_attributes']);
+        $sanitized['wc_include_rating']     = !empty($input['wc_include_rating']);
+
+        // Multilingual language selection.
+        $validLanguages       = array_keys(MultilingualIntegration::getLanguages());
+        $requestedLang        = sanitize_text_field($input['language'] ?? '');
+        $sanitized['language'] = (empty($requestedLang) || in_array($requestedLang, $validLanguages, true))
+            ? $requestedLang
+            : '';
+
         $this->cache->invalidate();
 
         return $sanitized;
@@ -583,26 +725,7 @@ final class SettingsPage
 
     private function getDefaults(): array
     {
-        return [
-            'enabled' => true,
-            'post_types' => ['post', 'page'],
-            'taxonomies' => ['category', 'post_tag'],
-            'posts_per_type' => 100,
-            'include_acf' => true,
-            'include_meta' => true,
-            'include_author' => true,
-            'include_date' => true,
-            'include_categories' => true,
-            'include_tags' => true,
-            'excluded_posts' => [],
-            'excluded_categories' => [],
-            'min_content_length' => 0,
-            'robots_txt_entry' => true,
-            'custom_header' => '',
-            'custom_description' => '',
-            'link_descriptions' => true,
-            'cache_duration' => 86400,
-        ];
+        return Plugin::getDefaults();
     }
 
     public function handleClearCache(): void
